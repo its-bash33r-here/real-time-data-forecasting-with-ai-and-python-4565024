@@ -160,6 +160,13 @@ def get_targets(energy_data):
 df = pd.read_csv(csv_file_path, parse_dates=['period'])
 df.set_index('period', inplace=True)
 
+##basheer learnings 
+df.dropna(inplace=True)
+
+Without inplace=True: You would need to assign the result back to the DataFrame:
+
+df = df.dropna()
+
 # Run the feature pipeline
 from scripts import feature_processing
 feature_processing.feature_pipeline(df)
