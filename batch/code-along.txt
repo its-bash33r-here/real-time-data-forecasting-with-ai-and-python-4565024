@@ -38,6 +38,7 @@ df = pd.read_csv(csv_file_path, parse_dates=['period']).set_index('period')
 # Display the DataFrame
 df.head()
 
+hello
 ---
 
 # Aggreggate by day:
