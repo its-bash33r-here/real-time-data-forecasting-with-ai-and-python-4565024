@@ -16,6 +16,10 @@ csv_file_path = 'data/energy_data.csv'
 
 # get the EIA API key form your secrets
 # API_KEY = os.environ.get('EIA_API_KEY')
+##simple error handling for your API key retrieval
+#if not API_KEY:
+#    raise ValueError("API Key not found. Please set the EIA_API_KEY environment variable.")
+
 
 # API URL
 # url = "https://api.eia.gov/v2/electricity/rto/region-sub-ba-data/data/?frequency=hourly&data[0]=value&facets[subba][]=ZONJ&start=2024-01-01T00&end=2024-03-30T23&sort[0][column]=period&sort[0][direction]=desc&offset=0&length=5000&api_key="+API_KEY
@@ -24,11 +28,29 @@ csv_file_path = 'data/energy_data.csv'
 # response = requests.get(url)
 # data = response.json()  # Decode the JSON response into a dictionary
 
+'''
+## Error Handling: Always check the response status to ensure the request was successful.
+
+if response.status_code == 200:
+    data = response.json()
+else:
+    print("Failed to retrieve data:", response.status_code)
+'''
+
 # Extract data from the response
 # energy_data = data['response']['data']
 # df = pd.DataFrame(energy_data)
 # df.to_csv(csv_file_path, index=False)
 
+## Setting index=False prevents pandas from writing row numbers to your CSV, which is typically unnecessary
+'''
+if 'response' in data and 'data' in data['response']:
+    energy_data = data['response']['data']
+    df = pd.DataFrame(energy_data)
+    df.to_csv(csv_file_path, index=False)
+else:
+    print("Data format is not as expected!")
+'''
 
 ---
 
@@ -45,17 +67,72 @@ df.head()
 # df.info()
 # df.describe()
 
+## Chunking Large Files: Use chunksize parameter in read_csv for large datasets
+'''
+chunk_size = 10000
+chunks = []
+for chunk in pd.read_csv(csv_file_path, chunksize=chunk_size, parse_dates=['period']):
+    chunks.append(chunk)
+df = pd.concat(chunks).set_index('period')
+
+'''
 ---
 
 # Aggreggate by day:
 df_daily = df.resample('D').sum("value")
 df_daily
 
+'''
+## Filtering Data During Aggregation
+# Define a custom function to sum values above a threshold
+def sum_above_threshold(data, threshold=50):
+    return data[data > threshold].sum()
+
+# Apply custom function during resampling
+df_daily_above_threshold = df.resample('D').apply(lambda x: sum_above_threshold(x, threshold=50))
+'''
+
+'''
+## Custom Aggregation with Multiple Functions
+# Define a custom aggregation function
+def custom_agg(df):
+    return pd.Series({
+        'sum_value': df['value'].sum(),
+        'max_value': df['value'].max(),
+        'min_value': df['value'].min()
+    })
+
+# Apply custom aggregation
+df_daily_custom_agg = df.resample('D').apply(custom_agg)
+'''
+
+'''
+##Calculating Weighted Average
+import numpy as np
+
+# Define a custom function to calculate weighted average
+def weighted_avg(data):
+    d = data.dropna()  # Drop missing values
+    weights = np.arange(1, len(d) + 1)
+    return np.average(d, weights=weights)
+
+# Apply custom function during resampling
+df_daily_weighted_avg = df.resample('D').apply(weighted_avg)
+'''
+
 ---
 
 # Inspect time series
 df_daily.plot(figsize=(10,5))
 
+
+## Saving Plots: Save plots using plt.savefig() for high-quality output in reports or presentations
+'''
+ax = df_daily.plot(figsize=(10,5), title='Daily Energy Data', xlabel='Date', ylabel='Energy Value')
+ax.grid(True)
+plt.savefig('daily_energy_plot.png')
+
+'''
 ---
 
 batch_df = pd.DataFrame()
@@ -81,6 +158,15 @@ batch_df['rolling_std_7'] = df_daily['value'].rolling(window=7).std().round(2)
 
 batch_df.head(7)
 
+##Common Pitfalls:
+
+Incorrect Window Size: An inappropriate window size can either smooth out too much detail or fail to capture longer trends.
+
+Ignoring NaNs: Not handling NaNs can lead to inaccuracies in subsequent calculations.
+'''
+batch_df['rolling_mean_7'] = df_daily['value'].rolling(window=7).mean().round(2).fillna(0)
+'''
+
 ---
 
 # Inspect target variable - it's actually 3!
@@ -92,6 +178,11 @@ batch_df['target_3d'] = df_daily['value'].shift(-3) # Third-next day
 
 batch_df.head(15)
 
+'''
+Target Variable: In supervised learning, the target variable is what you want to predict. Here, you're creating targets for the next day, the second-next day, and the third-next day.
+
+Multiple Targets: It's like preparing to forecast not just tomorrow, but also the day after and the day after that. Each shift represents a different prediction horizon.
+'''
 ---
 
 # check targets
@@ -104,6 +195,19 @@ df_daily.head(4)
 batch_df = batch_df.dropna()
 batch_df
 
+'''
+Forward Fill (ffill): A method that propagates the last valid observation forward to fill NaN values. Useful when the previous value logically fills the gap (e.g., time series data).
+
+batch_df = batch_df.fillna(method='ffill')  # Forward fill NaN values
+
+**Common Pitfalls:
+
+Inappropriate Fill: Using forward fill where it doesn’t make logical sense can lead to inaccurate data. Always consider the context.
+
+Hidden Errors: Filling NaNs without inspection can mask data issues. Always review the results.
+
+Combine Methods: Use a combination of fill methods (e.g., ffill followed by bfill for remaining NaNs).
+'''
 ---
 
 # Check correlation matrix. 
@@ -162,10 +266,12 @@ df.set_index('period', inplace=True)
 
 ##basheer learnings 
 df.dropna(inplace=True)
-
 Without inplace=True: You would need to assign the result back to the DataFrame:
-
 df = df.dropna()
+
+'''
+Unintended Modifications: Using inplace=True means you can’t undo the operation easily. Always double-check before applying this.
+'''
 
 # Run the feature pipeline
 from scripts import feature_processing
