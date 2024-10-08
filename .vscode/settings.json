@@ -13,11 +13,12 @@
   "editor.tabSize": 2,
   "editor.useTabStops": true,
   "emmet.triggerExpansionOnTab": true,
-  "explorer.openEditors.visible": 0,
+  "explorer.openEditors.visible": 9,
   "files.autoSave": "afterDelay",
   "screencastMode.onlyKeyboardShortcuts": true,
   "terminal.integrated.fontSize": 18,
   "workbench.colorTheme": "Visual Studio Dark",
   "workbench.fontAliasing": "antialiased",
-  "workbench.statusBar.visible": true
+  "workbench.statusBar.visible": true,
+  "editor.accessibilitySupport": "off"
 }
